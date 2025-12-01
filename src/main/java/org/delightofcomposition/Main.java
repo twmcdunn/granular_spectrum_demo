@@ -2,184 +2,114 @@ package org.delightofcomposition;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Random;
 
 import org.delightofcomposition.envelopes.Envelope;
 import org.delightofcomposition.sound.ChangeSpeed;
 import org.delightofcomposition.sound.DramaticEnvelope;
-import org.delightofcomposition.sound.FFT2;
-import org.delightofcomposition.sound.Normalize;
 import org.delightofcomposition.sound.ReadSound;
 import org.delightofcomposition.sound.Reverb;
 import org.delightofcomposition.sound.WaveWriter;
-import org.delightofcomposition.sound.WaveWriter_mono;
-import org.delightofcomposition.synth.Piano;
 import org.delightofcomposition.synth.SimpleSynth;
 import org.delightofcomposition.synth.Synth;
 import org.delightofcomposition.util.ProgressBar;
 
 public class Main {
     public static void main(String[] args) {
-        // createAtmosphere(new double[] { 1, 3, 5 }, "church_bell_atmos_1");
-        // makeSustainedSound();
-        // createBasicAtmosphere();
-
-        // createSpectralAtmosphere();
-
-        testPno();
-    }
-
-    public static void testPno() {
-        // Synth pno = new Piano();
-        //double[] sig = ReadSound.readSoundDoubles(Piano.SAMPLE_PATH + "60.wav");// pno.note(440, 0.5);
-        double[] sig = ReadSound.readSoundDoubles("resources/bell.wav");// pno.note(440, 0.5);
-
-        WaveWriter ww = new WaveWriter("test");
-        for (int i = 0; i < sig.length; i++) {
-            ww.df[0][i] += sig[i];
-            ww.df[1][i] += sig[i];
-        }
-        ww.render();
-    }
-
-    public static void createSpectralAtmosphere() {
-
-        Synth pno = new Piano();
-
-        double[] sampleToControlForm = ReadSound.readSoundDoubles("resources/bowedCello1.wav");
-
-        ArrayList<double[]> peaks = GranularSpectrum.getPeakFreqAmps(sampleToControlForm);
-        Collections.sort(peaks, new Comparator<double[]>() {
-            public int compare(double[] a, double[] b) {
-                return (int) (100000 * (a[1] - b[1]));
-            }
-        });
-
-        WaveWriter ww = new WaveWriter("spectral_atmosphere");
-        for (int n = peaks.size() - 1; n >= peaks.size() - 30; n--) {
-            double freq = peaks.get(n)[0];
-            System.out.println(freq);
-        }
-        note(73, 0, ww, pno);
-        double time = 3;
-        for (int n = peaks.size() - 1; n >= peaks.size() - 30; n--) {
-            double freq = peaks.get(n)[0];
-            note(freq, time, ww, pno);
-            time += 3;
-        }
-
-        ww.render();
-    }
-
-    public static void note(double freq, double time, WaveWriter ww, Synth synth) {
-
         double[] sample = ReadSound.readSoundDoubles("resources/bowedCello1.wav");
-        sample = ChangeSpeed.changeSpeed(sample, freq, 73);
-        double[] basic = GranularSpectrum.granularSpectrumCrispAttack(sample, synth);
-        DramaticEnvelope.dramaticEnvelope(basic, sample.length);
-
+        int origlen = sample.length;
         double panSmoothing = 0.5;
+        WaveWriter ww = new WaveWriter("experiment1_basic_spectrum");
 
-        for (int i = 0; i < basic.length; i++) {
-            double pan = panSmoothing * 0.5 + (1 - panSmoothing) * (i / (double) basic.length);
+        double[] sound = Demo.demo(sample);
 
-            ww.df[0][i + (int) (WaveWriter.SAMPLE_RATE * time)] += pan * basic[i];
-            ww.df[1][i + (int) (WaveWriter.SAMPLE_RATE * time)] += (1 - pan) * basic[i];
-        }
-    }
-
-    public static void createBasicAtmosphere() {
-        double[] sample = ReadSound.readSoundDoubles("resources/bowedCello1.wav");
-        WaveWriter ww = new WaveWriter("basic_sound_cello");
-        double[] basic = GranularSpectrum.granularSpectrum(sample);
-
-        double panSmoothing = 0.5;
-
-        for (int i = 0; i < basic.length; i++) {
-            double pan = panSmoothing * 0.5 + (1 - panSmoothing) * (i / (double) basic.length);
-
-            ww.df[0][i] += pan * basic[i];
-            ww.df[1][i] += (1 - pan) * basic[i];
+        for (int i = 0; i < sound.length; i++) {
+            // simple linear change in panning, just for fun
+            double pan = Math.min(panSmoothing * 0.5 + (1 - panSmoothing) * 0.5 * (i /
+                    (double) (origlen)), 1);
+            ww.df[0][i] += pan * sound[i];
+            ww.df[1][i] += (1 - pan) * sound[i];
         }
 
         ww.render();
-    }
+        for (int n = 0; n < 4; n++)
+            System.out.println();
+        System.out.println("HIC INCIPIT EXPERIMENT 2: BUILDING A CHORD WITH IT (in JI)");
 
-    public static void createAtmosphere(double[] ratios, String fileName) {
-        double[] sample = ReadSound.readSoundDoubles("resources/church_bell1.wav");
+        // after the experiment above, let's try making a chord out of this sound
+        // and give each instance of it a dramatic envelope
 
-        WaveWriter ww = new WaveWriter(fileName);
-
-        ArrayList<double[]> basic = new ArrayList<double[]>();
-        ArrayList<double[]> crispAttack = new ArrayList<double[]>();
-        ArrayList<double[]> withRev = new ArrayList<double[]>();
+        ww = new WaveWriter("experiment2_chord");
+        double[] ratios = { 1, 3, 5 };
+        double[] attacktimes = { 0, 3, 4 };
+        int fundLen = origlen;// length of the root
 
         for (int n = 0; n < ratios.length; n++) {
-            double[] sound = ChangeSpeed.changeSpeed(sample, ratios[n], 1);
-            double[] basicSig = GranularSpectrum.granularSpectrum(sound);
-            DramaticEnvelope.dramaticEnvelope(basicSig, sound.length);
-            basic.add(basicSig);
 
-            double[] crispSig = GranularSpectrum.granularSpectrumCrispAttack(sound);
-            DramaticEnvelope.dramaticEnvelope(crispSig, sound.length);
-            crispAttack.add(crispSig);
+            double ratio = ratios[n];
+            System.out.println();
+            System.out.println("TUNING RATIO: " + ratio);
 
-            double[] withRevSig = GranularSpectrum.withReverse(sample);
-            withRev.add(withRevSig);
-        }
+            double attackTime = attacktimes[n];
+            sample = ReadSound.readSoundDoubles("resources/bowedCello1.wav");
+            sample = ChangeSpeed.changeSpeed(sample, ratio, 1);
 
-        double prob = 0.5;
-        double panSmoothing = 0.5;
-        Random rand = new Random(123);
-        for (int s = 0; s < 30; s += 4) {
-            ArrayList<double[]> arr = null;
-            switch (rand.nextInt(3)) {
-                case 0:
-                    arr = basic;
-                    break;
-                case 1:
-                    arr = crispAttack;
-                    break;
-                case 2:
-                    arr = withRev;
-                    break;
-            }
-            for (int i = 0; i < ratios.length; i++) {
-                if (rand.nextDouble() > prob / (double) ratios.length) {
-                    double[] sig = arr.get(i);
-                    boolean revPan = rand.nextBoolean();
-                    for (int t = 0; t < sig.length; t++) {
-                        double pan = panSmoothing * 0.5 + (1 - panSmoothing) * (t / (double) sig.length);
-                        if (revPan)
-                            pan = 1 - pan;
-                        ww.df[0][(int) (s * WaveWriter.SAMPLE_RATE) + t] += pan * sig[t];
-                        ww.df[1][(int) (s * WaveWriter.SAMPLE_RATE) + t] += (1 - pan) * sig[t];
+            origlen = sample.length;// length of speed-adjusted sample
+
+            sound = Demo.demoCrispAttack(sample);
+            if (n == 0) {
+                // fundamental just grows
+                DramaticEnvelope.dramaticEnvelope(sound, origlen);
+            } else {
+                // other partials (shorter) play forward and then reverse
+                // but only apply drammatic envelope to the forward playing part
+                double[] dramaticEnvelopeSound = Arrays.copyOf(sound, sound.length);
+                DramaticEnvelope.dramaticEnvelope(dramaticEnvelopeSound, origlen);
+
+                sound = Arrays.copyOf(sound, origlen);// remove reverb tail before reverse logic, but after forward
+                                                      // version
+
+                double crossFadeDur = 0.5;
+
+                double[] fullSound = new double[dramaticEnvelopeSound.length + sound.length
+                        - (int) (crossFadeDur * WaveWriter.SAMPLE_RATE)];
+                for (int i = 0; i < fullSound.length; i++) {
+                    if (i < dramaticEnvelopeSound.length)
+                        fullSound[i] = dramaticEnvelopeSound[i];
+                    int framesPastTransition = i - (origlen// dramaticEnvelopeSound.length
+                            - (int) (WaveWriter.SAMPLE_RATE * crossFadeDur));
+                    if (framesPastTransition > 0 && framesPastTransition < sound.length) {
+                        double crossFadeDurInFrames = WaveWriter.SAMPLE_RATE * crossFadeDur;
+                        double mix = Math.min(1, framesPastTransition / crossFadeDurInFrames);
+                        // System.out.println("mix:" + mix);//sanity check
+                        fullSound[i] = mix * sound[sound.length - framesPastTransition] + (1 - mix) * fullSound[i];
                     }
                 }
+
+                int startForEndAlignment = fundLen - origlen;
+                double[] softAttack = Demo.demo(sample);
+                DramaticEnvelope.dramaticEnvelope(softAttack, origlen);
+                for (int i = 0; i < softAttack.length; i++) {
+                    ww.df[0][startForEndAlignment + i] += softAttack[i];
+                    ww.df[1][startForEndAlignment + i] += softAttack[i];
+                }
+
+                sound = fullSound;
+                origlen = sound.length;// also scale pan function across full mixed sample
             }
+
+            for (int i = 0; i < sound.length; i++) {
+                // simple linear change in panning, just for fun
+                double pan = Math.min(panSmoothing * 0.5 + (1 - panSmoothing) * 0.5 * (i / (double) (origlen)), 1);
+                if (n % 2 == 1)
+                    pan = 1 - pan;// opposite trajectories for each voice
+                ww.df[0][i + (int) (attackTime * WaveWriter.SAMPLE_RATE)] += pan * sound[i];
+                ww.df[1][i + (int) (attackTime * WaveWriter.SAMPLE_RATE)] += (1 - pan) * sound[i];
+            }
+
         }
 
         ww.render();
-    }
 
-    public static void makeSustainedSound() {
-        double[] noise = new double[(int) (WaveWriter.SAMPLE_RATE * 15)];
-        for (int i = 0; i < noise.length; i++) {
-            noise[i] = 2 * Math.random() - 1;
-        }
-        double[] pluck = ReadSound.readSoundDoubles("resources/pluck.wav");
-        pluck = ChangeSpeed.changeSpeed(pluck, 0.5, 1);
-
-        pluck = Arrays.copyOf(pluck, noise.length);
-        Normalize.normalize(pluck);
-
-        double[] outSig = FFT2.convAsImaginaryProduct(noise, pluck);
-
-        WaveWriter_mono ww = new WaveWriter_mono("pluckSus");
-        for (int i = 0; i < outSig.length; i++)
-            ww.df[0][i] += outSig[i];
-        ww.render(1);
     }
 }

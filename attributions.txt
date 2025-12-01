@@ -1,2 +1,0 @@
-for bass hit sound:
-Oil convector hit_1(ovrdrv,Eq,cmpr,lmtr).wav by newlocknew -- https://freesound.org/s/564809/ -- License: Attribution 4.0
