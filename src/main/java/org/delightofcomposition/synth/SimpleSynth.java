@@ -33,12 +33,7 @@ public class SimpleSynth extends Synth {
     }
 
     public double[] reverb(double amp) {
-        double mix = (1 - amp) * 0.3;
-        double[] sig = new double[wetSig.length];
-        for (int i = 0; i < sig.length; i++) {
-            sig[i] = (1 - mix) * sample[i] + mix * wetSig[i];
-        }
-        return sig;
+        return reverb(amp, 0.3, sample, wetSig);
     }
 
     public double[] synthAlg(double freq, double amp) {

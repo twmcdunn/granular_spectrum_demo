@@ -14,8 +14,8 @@ public abstract class Synth {
     public double[] note(double freq, double amp) {
         // any global adjustments to variables can be handled here
         // e.g. amp *= 0.9; //if you let amps get out of control (try not to)
-        //this can also be useful for debugging
-        //System.out.println(freq);
+        // this can also be useful for debugging
+        // System.out.println(freq);
         double[] sig = synthAlg(freq, amp);
         // apply any global filtering here
         // probably don't need to
@@ -23,4 +23,13 @@ public abstract class Synth {
     }
 
     public abstract double[] synthAlg(double freq, double amp);
+
+    public double[] reverb(double amp, double mix, double[] dry, double[] wet) {
+        mix = (1 - amp) * mix;
+        double[] sig = new double[wet.length];
+        for (int i = 0; i < sig.length; i++) {
+            sig[i] = (1 - mix) * dry[i] + mix * wet[i];
+        }
+        return sig;
+    }
 }
