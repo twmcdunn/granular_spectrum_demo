@@ -63,45 +63,47 @@ public class ReadSound {
         if (is24bit) {
             normalizedData = decode24bit(soundData, normalizedData);
         } else {
+             // Corrected 16-bit audio decoding section
             int t = 0;
             float max = 0;
             int[] data = new int[normalizedData.length];
 
-            // int[] rawIntData = new int[normalizedData.length];
             for (int i = 0; i < soundData.length; i += 2) {
-                /*
-                 * System.out.println(soundData[i]);
-                 * System.out.println(soundData[i + 1]);
-                 * System.out.println();
-                 */
+                int b1, b2;
 
-                int b1 = soundData[i];// + 128;
-                if (b1 < 0) {
-                    // must convert neg twos comp in little byte
-                    // because only big byte determines sign in 16-bit neg twos comp
-                    b1 = 256 + b1;
+                if (audioFormat.isBigEndian()) {
+                    // Big-endian: most significant byte first
+                    b1 = soundData[i]; // MSB
+                    b2 = soundData[i + 1]; // LSB
+                } else {
+                    // Little-endian: least significant byte first
+                    b1 = soundData[i + 1]; // MSB
+                    b2 = soundData[i]; // LSB
                 }
 
-                int b2 = soundData[i + 1];// + 128;
-                int b2transformed = b2 << 8;
-                int dataPoint = b1 | b2transformed;
-                max = (float) Math.max(Math.abs(max), Math.abs(dataPoint));
-                data[t] = dataPoint;
-                normalizedData[t++] = (float) (dataPoint); // (double)Short.MAX_VALUE);//Short.MAX_VALUE);// - 1;
+                // Convert bytes to unsigned values (0-255)
+                int unsignedB1 = b1 & 0xFF;
+                int unsignedB2 = b2 & 0xFF;
 
+                // Combine bytes into 16-bit value
+                int dataPoint = (unsignedB1 << 8) | unsignedB2;
+
+                // Convert from unsigned 16-bit to signed 16-bit (two's complement)
+                if (dataPoint > 32767) {
+                    dataPoint -= 65536;
+                }
+
+                max = Math.max(max, Math.abs(dataPoint));
+                data[t] = dataPoint;
+                normalizedData[t++] = (float) dataPoint;
             }
-            // byte[] sd2 = new byte[numBytes];
+
+            // Normalize to [-1, 1] range
             for (int i = 0; i < normalizedData.length; i++) {
-                /*
-                 * int c2 = data[i] / 256;
-                 * int c1 = data[i] - c2;
-                 * 
-                 * sd2[i*2] = (byte)c1;
-                 * sd2[i*2 + 1] = (byte)(c2);
-                 */
                 normalizedData[i] /= max;
-                if (normalizedData[i] > 1)
+                if (Math.abs(normalizedData[i]) > 1) {
                     System.out.println("ERROR: " + normalizedData[i]);
+                }
             }
         }
 
